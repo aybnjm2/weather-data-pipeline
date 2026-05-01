@@ -1,10 +1,12 @@
 version: '3.8'
 
 x-airflow-common: &airflow-common
-  image: apache/airflow:2.8.1
+  build: 
+    context: .
+    dockerfile: Dockerfile.airflow
   environment:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-    - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+    - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres:5432/weather
     - AIRFLOW__CORE__LOAD_EXAMPLES=False
   volumes:
     - ./dags:/opt/airflow/dags
@@ -14,7 +16,7 @@ x-airflow-common: &airflow-common
       condition: service_healthy
 
 services:
-  # 1. Base de données relationnelle (Pour Airflow ET pour Power BI / Couche Gold)
+  # 1. BD relationnelle (Pour Airflow ET pour Power BI / Couche Gold)
   postgres:
     image: postgres:13
     environment:
@@ -43,28 +45,34 @@ services:
 
   # 3. Apache Spark (Master)
   spark-master:
-    image: bitnami/spark:3.4.1
+    image: apache/spark:3.4.1
+    user: root
     environment:
       - SPARK_MODE=master
+      - SPARK_MASTER_HOST=spark-master
     ports:
       - "8080:8080" # Spark Web UI
       - "7077:7077" # Spark Master URL
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master --host spark-master
 
   # 4. Apache Spark (Worker)
   spark-worker:
-    image: bitnami/spark:3.4.1
+    image: apache/spark:3.4.1
+    user: root
     environment:
       - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=2g
     depends_on:
       - spark-master
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
 
-  # 5. Airflow init (Initialise la BDD Airflow)
+  # 5. airflow init (Initialise la BDD Airflow)
   airflow-init:
     <<: *airflow-common
     command: version
     environment:
-      - _AIRFLOW_DB_UPGRADE=true
+      - _AIRFLOW_DB_MIGRATE=true
       - _AIRFLOW_WWW_USER_CREATE=true
       - _AIRFLOW_WWW_USER_USERNAME=${AIRFLOW_WWW_USER_USERNAME}
       - _AIRFLOW_WWW_USER_PASSWORD=${AIRFLOW_WWW_USER_PASSWORD}
