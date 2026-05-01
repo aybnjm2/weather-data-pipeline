@@ -1,0 +1,12 @@
+FROM apache/airflow:2.8.1
+
+USER root
+# Installation de Java (nécessaire pour Spark)
+RUN apt-get update && \
+    apt-get install -y default-jre-headless && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+USER airflow
+# Installation du provider Spark pour Airflow
+RUN pip install apache-airflow-providers-apache-spark
