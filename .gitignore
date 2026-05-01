@@ -1,3 +1,6 @@
 # environement variables
 .env
 .venv
+
+#data
+minio_data
