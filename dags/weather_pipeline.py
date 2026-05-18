@@ -4,7 +4,7 @@ from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOpe
 from datetime import datetime, timedelta
 
 default_args = {
-    'owner': 'ayb_nabil',
+    'owner': 'ayb',
     'depends_on_past': False,
     'start_date': datetime(2024, 2, 1),
     'retries': 1,
