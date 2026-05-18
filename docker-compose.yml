@@ -1,20 +1,26 @@
 version: '3.8'
 
 x-airflow-common: &airflow-common
-  build: 
+  build:
     context: .
     dockerfile: Dockerfile.airflow
+  user: "${AIRFLOW_UID:-50000}:0"
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/weather
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    # local[*] — runs Spark entirely inside the scheduler container, no worker callback needed
+    AIRFLOW_CONN_CONN_SPARK: '{"conn_type": "spark", "host": "local[*]", "port": ""}'
   volumes:
     - ./dags:/opt/airflow/dags
     - ./scripts:/opt/airflow/scripts
+    - ./logs:/opt/airflow/logs
   depends_on:
     postgres:
       condition: service_healthy
+  networks:
+    - pipeline-net
 
 services:
   postgres:
@@ -29,6 +35,8 @@ services:
       test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
       interval: 5s
       retries: 5
+    networks:
+      - pipeline-net
 
   minio:
     image: minio/minio:latest
@@ -41,7 +49,11 @@ services:
     command: server /data --console-address ":9001"
     volumes:
       - ./minio_data:/data
+    networks:
+      - pipeline-net
 
+  # spark-master and spark-worker kept for Spark UI / future cluster use
+  # Airflow submits in local[*] mode so no worker callbacks are needed
   spark-master:
     image: apache/spark:3.4.1
     user: root
@@ -52,6 +64,13 @@ services:
       - "8080:8080"
       - "7077:7077"
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master --host spark-master
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pipeline-net
 
   spark-worker:
     image: apache/spark:3.4.1
@@ -61,8 +80,11 @@ services:
       SPARK_WORKER_CORES: 2
       SPARK_WORKER_MEMORY: 2g
     depends_on:
-      - spark-master
+      spark-master:
+        condition: service_healthy
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+    networks:
+      - pipeline-net
 
   airflow-init:
     <<: *airflow-common
@@ -93,3 +115,7 @@ services:
     depends_on:
       airflow-init:
         condition: service_completed_successfully
+
+networks:
+  pipeline-net:
+    driver: bridge
