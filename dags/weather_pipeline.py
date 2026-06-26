@@ -11,7 +11,7 @@ default_args = {
     'retry_delay': timedelta(minutes=2),
 }
 
-# S3A + Spark config — all here so both driver AND executor get them
+# s3a and Spark config —> all here so both driver and executor get them
 SPARK_CONF = {
     "spark.driver.bindAddress": "0.0.0.0",
 
