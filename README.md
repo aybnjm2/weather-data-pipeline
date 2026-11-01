@@ -22,7 +22,7 @@ The pipeline runs daily at 6:00 AM and includes data quality checks between Silv
 
 ## Architecture
 
-![Description de l'image]([URL-de-votre-image](https://github.com/aybnjm2/weather-data-pipeline/blob/main/architecture.JPG?raw=true))
+![ma photo](./mon-image.png)
 
 ### Components
 
