@@ -22,7 +22,7 @@ The pipeline runs daily at 6:00 AM and includes data quality checks between Silv
 
 ## Architecture
 
-![ma photo](./mon-image.png)
+![ma photo](./architecture.JPG)
 
 ### Components
 
